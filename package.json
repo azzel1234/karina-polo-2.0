@@ -1,0 +1,15 @@
+{
+  "name": "karina-polo-peluqueria",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Agenda de citas para Karina Polo Peluquería con SQL Server",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "mssql": "^12.2.0",
+    "msnodesqlv8": "^5.1.1"
+  }
+}

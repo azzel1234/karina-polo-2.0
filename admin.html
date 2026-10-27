@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Panel de citas | Karina Polo</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --paper: #080709;
+      --panel: #171519;
+      --ink: #f5f1f5;
+      --muted: #b3adb7;
+      --line: #39343d;
+      --green: #f20a7b;
+      --green-dark: #c90063;
+      --coral: #ff3b98;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: Arial, sans-serif;
+    }
+    .wrap {
+      width: min(1100px, calc(100% - 32px));
+      margin: 32px auto;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(24px, 4vw, 36px);
+    }
+    .links {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    a, button {
+      font: inherit;
+    }
+    .button,
+    .status-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--ink);
+      text-decoration: none;
+      cursor: pointer;
+      padding: 0 12px;
+    }
+    .button.primary,
+    .status-btn.primary {
+      background: var(--green);
+      border-color: var(--green);
+      color: white;
+    }
+    .button:hover, .status-btn:hover { opacity: .95; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    th, td {
+      text-align: left;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      font-size: 14px;
+    }
+    th {
+      background: rgba(255,255,255,0.02);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-size: 11px;
+    }
+    tr:last-child td { border-bottom: 0; }
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: capitalize;
+    }
+    .pending { background: rgba(255, 180, 0, 0.14); color: #ffd166; }
+    .confirmed { background: rgba(34, 197, 94, 0.14); color: #86efac; }
+    .cancelled { background: rgba(239, 68, 68, 0.14); color: #fca5a5; }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .status-btn {
+      min-height: 30px;
+      font-size: 12px;
+      padding: 0 10px;
+    }
+    .empty {
+      padding: 30px 16px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      text-align: center;
+    }
+    @media (max-width: 760px) {
+      table, thead, tbody, th, td, tr { display: block; }
+      thead { display: none; }
+      tr { border-bottom: 1px solid var(--line); }
+      td {
+        border-bottom: 0;
+        padding: 9px 12px;
+      }
+      td::before {
+        content: attr(data-label);
+        display: block;
+        color: var(--muted);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 4px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <h1>Panel de citas</h1>
+      <div class="links">
+        <a class="button" href="/">Ir a la página</a>
+        <button class="button primary" type="button" id="refresh-btn">Actualizar</button>
+      </div>
+    </div>
+
+    <div id="appointments-container"></div>
+  </div>
+
+  <script>
+    const container = document.querySelector('#appointments-container');
+    const formatDate = (value) => {
+      if (!value) return '-';
+      const d = new Date(value);
+      return new Intl.DateTimeFormat('es-CO', {
+        day: '2-digit', month: 'short', year: 'numeric'
+      }).format(d);
+    };
+
+    const formatTime = (value) => {
+      if (!value) return '-';
+      const [h, m] = value.split(':');
+      const date = new Date();
+      date.setHours(Number(h), Number(m), 0, 0);
+      return new Intl.DateTimeFormat('es-CO', {
+        hour: 'numeric', minute: '2-digit', hour12: true
+      }).format(date);
+    };
+
+    async function loadAppointments() {
+      try {
+        const response = await fetch('/api/appointments');
+        const appointments = await response.json();
+
+        if (!appointments.length) {
+          container.innerHTML = '<div class="empty">No hay citas registradas todavía.</div>';
+          return;
+        }
+
+        const rows = appointments.map(appointment => `
+          <tr>
+            <td data-label="ID">${appointment.id}</td>
+            <td data-label="Cliente">${appointment.customer_name}</td>
+            <td data-label="Teléfono">${appointment.customer_phone}</td>
+            <td data-label="Servicio">${appointment.service}</td>
+            <td data-label="Fecha">${formatDate(appointment.appointment_date)}</td>
+            <td data-label="Hora">${formatTime(appointment.appointment_time)}</td>
+            <td data-label="Estado"><span class="badge ${appointment.status}">${appointment.status}</span></td>
+            <td data-label="Acciones">
+              <div class="actions">
+                <button class="status-btn ${appointment.status === 'pending' ? 'primary' : ''}" data-id="${appointment.id}" data-status="pending" type="button">Pendiente</button>
+                <button class="status-btn ${appointment.status === 'confirmed' ? 'primary' : ''}" data-id="${appointment.id}" data-status="confirmed" type="button">Confirmada</button>
+                <button class="status-btn ${appointment.status === 'cancelled' ? 'primary' : ''}" data-id="${appointment.id}" data-status="cancelled" type="button">Cancelada</button>
+              </div>
+            </td>
+          </tr>`).join('');
+
+        container.innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Cliente</th>
+                <th>Teléfono</th>
+                <th>Servicio</th>
+                <th>Fecha</th>
+                <th>Hora</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>`;
+
+        document.querySelectorAll('.status-btn').forEach(button => {
+          button.addEventListener('click', async () => {
+            const id = button.dataset.id;
+            const status = button.dataset.status;
+            try {
+              const response = await fetch(`/api/appointments/${id}/status`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status })
+              });
+              if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || 'No se pudo actualizar');
+              }
+              await loadAppointments();
+            } catch (error) {
+              alert(error.message || 'No se pudo actualizar la cita.');
+            }
+          });
+        });
+      } catch (error) {
+        container.innerHTML = '<div class="empty">No pudimos cargar las citas. Revisa la conexión con SQL Server.</div>';
+      }
+    }
+
+    document.querySelector('#refresh-btn').addEventListener('click', loadAppointments);
+    loadAppointments();
+  </script>
+</body>
+</html>
